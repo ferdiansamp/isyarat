@@ -36,6 +36,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
+
+import androidx.compose.foundation.border
+
 // --- TEMA WARNA ---
 val PrimaryBlue = Color(0xFF1E3A8A)
 val TealAction = Color(0xFF0F768E)
@@ -107,8 +112,8 @@ fun MainScreen() {
         ) {
             composable("home") { HomeScreen() }
             composable("to_text") { ToTextScreen() }
-            composable("to_screen") { DummyScreen("Ke Layar") }
-            composable("history") { DummyScreen("Riwayat") }
+            composable("to_screen") { ToScreenScreen() }
+            composable("history") { HistoryScreen() }
 //            composable("settings") { DummyScreen("Pengaturan") }
         }
     }
@@ -576,8 +581,578 @@ fun ActionPill(icon: ImageVector, text: String) {
     }
 }
 
+//import androidx.compose.foundation.background
+//import androidx.compose.foundation.border
+//import androidx.compose.foundation.clickable
+//import androidx.compose.foundation.layout.*
+//import androidx.compose.foundation.rememberScrollState
+//import androidx.compose.foundation.shape.RoundedCornerShape
+//import androidx.compose.foundation.verticalScroll
+//import androidx.compose.material.icons.Icons
+//import androidx.compose.material.icons.filled.*
+//import androidx.compose.material3.*
+//import androidx.compose.runtime.*
+//import androidx.compose.ui.Alignment
+//import androidx.compose.ui.Modifier
+//import androidx.compose.ui.draw.clip
+//import androidx.compose.ui.graphics.Color
+//import androidx.compose.ui.text.font.FontWeight
+//import androidx.compose.ui.unit.dp
+//import androidx.compose.ui.unit.sp
 
-// INI DUMMY DOANG :v
+// Tambahan Warna
+val LightCyanBg = Color(0xFFC4EFFF)
+
+// INI LAMAN HURUF KE HURUF YANG LEBIH BESAR
+@Composable
+fun ToScreenScreen() {
+    // State untuk input teks
+    var messageText by remember {
+        mutableStateOf("Permisi, apakah trans jateng pemberhentian kampus teknik sudah lewat?")
+    }
+
+    // State untuk ukuran teks
+    var selectedSize by remember { mutableStateOf("Ekstra Besar") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 1. Header (Gunakan dari MainActivity)
+        HeaderSection()
+
+        // 2. Title Section
+        Column {
+            Text(
+                text = "Text ke Layar",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryBlue
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "penerjemah kamera instan", // Sesuai teks di desain
+                fontSize = 14.sp,
+                color = DarkText
+            )
+        }
+
+        // 3. Preview Section
+        SectionTitleWithIcon(icon = Icons.Default.Visibility, title = "PREVIEW LAYAR KOMUNIKASI")
+        CommunicationPreviewCard(text = messageText)
+
+        // 4. Input Section
+        SectionTitleWithIcon(icon = Icons.Default.Edit, title = "Tulis Pesan Cepat")
+        MessageInputBox(text = messageText, onTextChange = { messageText = it })
+
+        // 5. Settings Section
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SectionTitleWithIcon(icon = Icons.Default.Tune, title = "Pengaturan Tampilan", paddingBottom = 0.dp)
+            Row(modifier = Modifier.clickable { /* Reset action */ }) {
+                Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = TealAction, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "Reset", color = TealAction, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        DisplaySizeSelector(
+            selectedOption = selectedSize,
+            onOptionSelected = { selectedSize = it }
+        )
+
+        // 6. Tips Section
+        TipsCard()
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun SectionTitleWithIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, paddingBottom: androidx.compose.ui.unit.Dp = 8.dp) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = paddingBottom)) {
+        Icon(icon, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryBlue,
+            fontSize = 14.sp
+        )
+    }
+}
+
+@Composable
+fun CommunicationPreviewCard(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(PrimaryBlue)
+            .padding(16.dp)
+    ) {
+        Column {
+            // Header Card
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ScreenRotation, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Tampilan Normal", color = Color.White, fontSize = 12.sp)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .clickable { /* TODO: Rotate 180 degrees logic */ }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Sync, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Putar 180°", color = Color.White, fontSize = 12.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Main Display Text
+            Text(
+                text = text.uppercase(),
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = 32.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Footer Card
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Mode Komunikasi Langsung", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                Row {
+                    Box(modifier = Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(modifier = Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageInputBox(text: String, onTextChange: (String) -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LightGrayBg)
+            .padding(16.dp)
+    ) {
+        BasicTextField(
+            value = text,
+            onValueChange = onTextChange,
+            textStyle = TextStyle(
+                fontSize = 16.sp,
+                color = DarkText,
+                lineHeight = 24.sp
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { innerTextField ->
+                if (text.isEmpty()) {
+                    Text("Ketik pesan Anda di sini...", color = GrayText)
+                }
+                innerTextField()
+            }
+        )
+    }
+}
+
+@Composable
+fun DisplaySizeSelector(selectedOption: String, onOptionSelected: (String) -> Unit) {
+    val options = listOf("Sedang", "Besar", "Ekstra Besar")
+
+    Column {
+        Text(text = "Ukuran Teks Layar", fontSize = 12.sp, color = DarkText, modifier = Modifier.padding(bottom = 8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFF3F4F6)) // Warna background abu-abu sangat terang
+                .padding(4.dp)
+        ) {
+            options.forEach { text ->
+                val isSelected = selectedOption == text
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) PrimaryBlue else Color.Transparent)
+                        .clickable { onOptionSelected(text) }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = text,
+                        color = if (isSelected) Color.White else DarkText,
+                        fontSize = 14.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TipsCard() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LightCyanBg)
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(Icons.Default.Info, contentDescription = "Tips", tint = TealAction)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(text = "Tips Berkomunikasi di Tempat Ramai", fontWeight = FontWeight.Bold, color = DarkText, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Arahkan layar ponsel ke lawan bicara dan aktifkan rotasi 180° agar mereka bisa langsung membaca tanpa Anda harus membalikkan seluruh genggaman ponsel.",
+                    fontSize = 13.sp,
+                    color = TealAction,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
+
+//import androidx.compose.foundation.background
+//import androidx.compose.foundation.clickable
+//import androidx.compose.foundation.layout.*
+//import androidx.compose.foundation.lazy.LazyColumn
+//import androidx.compose.foundation.lazy.items
+//import androidx.compose.foundation.shape.CircleShape
+//import androidx.compose.foundation.shape.RoundedCornerShape
+//import androidx.compose.material.icons.Icons
+//import androidx.compose.material.icons.filled.*
+//import androidx.compose.material3.*
+//import androidx.compose.runtime.*
+//import androidx.compose.ui.Alignment
+//import androidx.compose.ui.Modifier
+//import androidx.compose.ui.draw.clip
+//import androidx.compose.ui.graphics.Color
+//import androidx.compose.ui.graphics.vector.ImageVector
+//import androidx.compose.ui.text.font.FontWeight
+//import androidx.compose.ui.text.style.TextAlign
+//import androidx.compose.ui.unit.dp
+//import androidx.compose.ui.unit.sp
+
+// --- TAMBAHAN WARNA UNTUK RIWAYAT ---
+val CyanBadgeBg = Color(0xFFC4EFFF)
+val PurpleBadgeBg = Color(0xFFE0E7FF)
+val LightBlueActionBg = Color(0xFFEEF2FF)
+val SearchBarBg = Color(0xFFE5E7EB) // Abu-abu terang sesuai gambar
+
+// --- DATA CLASS UNTUK RIWAYAT ---
+data class HistoryModel(
+    val id: Int,
+    val type: String, // "isyarat_ke_teks" atau "teks_ke_layar"
+    val timestamp: String,
+    val text: String
+)
+
+val dummyHistory = listOf(
+    HistoryModel(1, "isyarat_ke_teks", "Hari ini, 09:15 WIB", "\"Selamat pagi, boleh saya bertanya jadwal dokter hari ini?\""),
+    HistoryModel(2, "isyarat_ke_teks", "Hari ini, 09:15 WIB", "\"Selamat pagi, boleh saya bertanya jadwal dokter hari ini?\""),
+    HistoryModel(3, "teks_ke_layar", "Kemarin, 16:40 WIB", "\"Terima kasih banyak, sangat membantu!\"")
+)
+
+// INI LAMAN HISTORY
+@Composable
+fun HistoryScreen() {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        // 1. Header (Gunakan dari MainActivity sebelumnya)
+        item { HeaderSection() }
+
+        // 2. Title Section
+        item {
+            Column {
+                Text(
+                    text = "Riwayat Terjemahan",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Daftar percakapan dan terjemahan yang telah disimpan",
+                    fontSize = 12.sp,
+                    color = DarkText
+                )
+            }
+        }
+
+        // 3. Search Bar & Filter Placeholders (Berdasarkan blok abu-abu di gambar)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Kotak abu-abu panjang (Search Bar)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SearchBarBg)
+                )
+
+                // Kotak abu-abu kecil (Filter)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SearchBarBg)
+                )
+            }
+        }
+
+        // 4. Filter Chips (Blok biru gelap di gambar)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(24.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(PrimaryBlue)
+                    )
+                }
+            }
+        }
+
+        // 5. List Riwayat
+        items(dummyHistory) { item ->
+            HistoryCardItem(item)
+        }
+
+        // 6. Privacy Footer
+        item {
+            PrivacyFooter()
+        }
+
+        // 7. Clear History Button
+        item {
+            ClearHistoryButton()
+        }
+    }
+}
+
+@Composable
+fun HistoryCardItem(history: HistoryModel) {
+    val isIsyarat = history.type == "isyarat_ke_teks"
+    val badgeBg = if (isIsyarat) CyanBadgeBg else PurpleBadgeBg
+    val badgeIcon = if (isIsyarat) Icons.Default.PanTool else Icons.Default.Fullscreen
+    val badgeText = if (isIsyarat) "Isyarat → Teks" else "Teks → Layar"
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LightGrayBg) // Background card abu-abu
+            .padding(16.dp)
+    ) {
+        Column {
+            // Header Card: Badge & Waktu
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Badge
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(badgeBg)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(badgeIcon, contentDescription = null, tint = DarkText, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = badgeText, fontSize = 10.sp, color = DarkText, fontWeight = FontWeight.SemiBold)
+                }
+
+                // Waktu
+                Text(text = history.timestamp, fontSize = 12.sp, color = GrayText)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Teks Riwayat
+            Text(
+                text = history.text,
+                fontSize = 16.sp,
+                color = DarkText,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 22.sp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action Buttons Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Tombol Khusus "Teks ke Layar" (Tampilkan Lagi)
+                    if (!isIsyarat) {
+                        ActionHistoryButton(
+                            text = "Tampilkan Lagi",
+                            icon = Icons.Default.Fullscreen,
+                            bgColor = PrimaryBlue,
+                            textColor = Color.White
+                        )
+                    }
+
+                    // Tombol Default "Salin"
+                    ActionHistoryButton(
+                        text = "Salin",
+                        icon = Icons.Default.ContentCopy,
+                        bgColor = LightBlueActionBg,
+                        textColor = PrimaryBlue
+                    )
+                }
+
+                // Ikon Hapus
+                Icon(
+                    Icons.Default.DeleteOutline,
+                    contentDescription = "Hapus",
+                    tint = GrayText,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clickable { /* TODO: Hapus item */ }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ActionHistoryButton(text: String, icon: ImageVector, bgColor: Color, textColor: Color) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .clickable { /* TODO Action */ }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = textColor, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text = text, fontSize = 12.sp, color = textColor, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun PrivacyFooter() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(contentAlignment = Alignment.TopEnd) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(LightBlueActionBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.VerifiedUser, contentDescription = "Privasi", tint = PrimaryBlue, modifier = Modifier.size(24.dp))
+            }
+            // Titik hijau indikator aman
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF0D9488)) // Teal Hijau
+                    .border(2.dp, Color.White, CircleShape)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Privasi Terjaga di Perangkat",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryBlue
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Semua data riwayat tersimpan aman secara luring pada perangkat Anda tanpa dikirim ke server publik.",
+            fontSize = 11.sp,
+            color = GrayText,
+            textAlign = TextAlign.Center,
+            lineHeight = 16.sp
+        )
+    }
+}
+
+@Composable
+fun ClearHistoryButton() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LightBlueActionBg)
+            .clickable { /* TODO: Hapus Semua Action */ }
+            .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = "Kosongkan Semua Riwayat", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+    }
+}
+
+// INI DUMMY DOANG :V
 @Composable
 fun DummyScreen(title: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
