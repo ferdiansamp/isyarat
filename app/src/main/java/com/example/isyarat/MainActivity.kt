@@ -92,6 +92,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// INI MAIN SCREEN
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
@@ -108,11 +109,13 @@ fun MainScreen() {
             composable("to_text") { ToTextScreen() }
             composable("to_screen") { DummyScreen("Ke Layar") }
             composable("history") { DummyScreen("Riwayat") }
-            composable("settings") { DummyScreen("Pengaturan") }
+//            composable("settings") { DummyScreen("Pengaturan") }
         }
     }
 }
 
+
+// INI BUAT LAMAN BERANDA
 @Composable
 fun HomeScreen() {
     LazyColumn(
@@ -147,6 +150,7 @@ fun HomeScreen() {
     }
 }
 
+// INI HEADER
 @Composable
 fun HeaderSection() {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -170,7 +174,7 @@ fun HeaderSection() {
 fun GreetingSection() {
     Column {
         Text(
-            text = "Halo, Teman Isyara",
+            text = "Halo, Teman Isyarat",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = PrimaryBlue
@@ -320,6 +324,7 @@ fun ActivityCard(activity: RecentActivity) {
     }
 }
 
+// INI TOMBOL NAVIGASI
 @Composable
 fun BottomNavigationBar(navController: NavController) {
     val items = listOf(
@@ -327,7 +332,7 @@ fun BottomNavigationBar(navController: NavController) {
         Triple("Ke Teks", Icons.Default.PanTool, "to_text"),
         Triple("Ke Layar", Icons.Default.Fullscreen, "to_screen"),
         Triple("Riwayat", Icons.Default.History, "history"),
-        Triple("Pengaturan", Icons.Default.Settings, "settings")
+//        Triple("Pengaturan", Icons.Default.Settings, "settings")
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -381,6 +386,8 @@ fun BottomNavigationBar(navController: NavController) {
 //import androidx.compose.ui.unit.dp
 //import androidx.compose.ui.unit.sp
 
+
+// INI LAMAN KAMERA KE TEKS
 @Composable
 fun ToTextScreen() {
     Column(
@@ -569,6 +576,8 @@ fun ActionPill(icon: ImageVector, text: String) {
     }
 }
 
+
+// INI DUMMY DOANG :v
 @Composable
 fun DummyScreen(title: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
