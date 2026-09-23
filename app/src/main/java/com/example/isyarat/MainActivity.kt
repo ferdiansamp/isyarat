@@ -32,7 +32,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.Composable
 import com.example.isyarat.ui.theme.IsyaratTheme
-
+import com.example.isyarat.ui.kamus.KamusScreen
 // --- DATA CLASS UNTUK DINAMIS ---
 data class TranslationMode(
     val title: String,
@@ -99,6 +99,7 @@ fun MainScreen() {
             composable("to_text") { ToTextScreen() }
             composable("to_screen") { ToScreenScreen() }
             composable("history") { HistoryScreen() }
+            composable("kamus") { KamusScreen() }
 //            composable("settings") { DummyScreen("Pengaturan") }
         }
     }
@@ -322,6 +323,7 @@ fun BottomNavigationBar(navController: NavController) {
         Triple("Ke Teks", Icons.Default.PanTool, "to_text"),
         Triple("Ke Layar", Icons.Default.Fullscreen, "to_screen"),
         Triple("Riwayat", Icons.Default.History, "history"),
+        Triple("Kamus", Icons.Default.MenuBook, "kamus"),
 //        Triple("Pengaturan", Icons.Default.Settings, "settings")
     )
 
