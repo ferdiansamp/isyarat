@@ -1,122 +1,192 @@
 package com.example.isyarat.ui.camera
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Gesture
-import androidx.compose.material.icons.filled.PauseCircleOutline
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.isyarat.HeaderSection
 
-// INI LAMAN KAMERA KE TEKS
 @Composable
 fun ToTextScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(horizontal = 20.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
+    val context = LocalContext.current
 
-        // 1. Header (Reused style from Home)
-        HeaderSection() // Menggunakan HeaderSection dari file MainActivity sebelumnya
-
-        // 2. Title Section
-        Column {
-            Text(
-                text = "Isyarat ke Text",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "penerjemah kamera instan",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-        }
-
-        // 3. Camera Placeholder (Tempat Anda akan memasukkan CameraX nanti)
-        CameraScannerPlaceholder()
-
-        // 4. Live Translation Result
-        TranslationResultCard()
-
-        // 5. Action Button (Jeda/Mulai Deteksi)
-        Button(
-            onClick = { /* TODO: Pause/Resume Camera/ML detection */ },
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Icon(Icons.Default.PauseCircleOutline, contentDescription = "Jeda")
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Jeda Deteksi", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        }
-
-        // 6. Footer Info
-        Text(
-            text = "Kamera memproses isyarat secara langsung di perangkat secara aman.",
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.tertiary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+    // 1. State untuk mengecek apakah izin kamera sudah diberikan
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
         )
+    }
+
+    // STATE BARU: Mengontrol apakah mode layar penuh aktif atau tidak
+    var isFullScreen by remember { mutableStateOf(false) }
+
+    // 2. Launcher untuk meminta izin ke user
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            hasCameraPermission = isGranted
+        }
+    )
+
+    // 3. Meminta izin secara otomatis saat layar ini dibuka
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // JIKA MODE LAYAR PENUH AKTIF
+    if (isFullScreen && hasCameraPermission) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            // Kamera menempati seluruh area layar
+            CameraPreviewView()
+
+            // Tombol "Back" di kiri atas
+            Row(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.4f)) // Sedikit transparan agar mudah dibaca di atas kamera
+                    .clickable { isFullScreen = false }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Back", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+    // JIKA MODE NORMAL AKTIF
+    else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HeaderSection()
+
+            Column {
+                Text(
+                    text = "Isyarat ke Text",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "penerjemah kamera instan",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+
+            // 4. Meneruskan status izin dan aksi klik ke Placeholder Kamera
+            CameraScannerPlaceholder(
+                hasPermission = hasCameraPermission,
+                onClick = {
+                    if (hasCameraPermission) {
+                        isFullScreen = true // Memicu transisi ke layar penuh saat area ditekan
+                    }
+                }
+            )
+
+            TranslationResultCard()
+
+            Button(
+                onClick = {
+                    if (!hasCameraPermission) {
+                        permissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Icon(if (hasCameraPermission) Icons.Default.PauseCircleOutline else Icons.Default.CameraAlt, contentDescription = "Jeda")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (hasCameraPermission) "Jeda Deteksi" else "Beri Akses Kamera",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Text(
+                text = "Kamera memproses isyarat secara langsung di perangkat secara aman.",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.tertiary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            )
+        }
     }
 }
 
 @Composable
-fun CameraScannerPlaceholder() {
+fun CameraScannerPlaceholder(hasPermission: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f) // Membuatnya persegi
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.background)
+            .clickable { onClick() } // Menjadikan keseluruhan area kotak dapat ditekan
     ) {
-        // Menggambar garis siku (brackets) seperti di desain
-        val bracketColor = Color.Gray
+        // 5. Jika diberi izin, tampilkan Kamera Asli. Jika tidak, tampilkan teks.
+        if (hasPermission) {
+            CameraPreviewView()
+        } else {
+            Text(
+                text = "Menunggu Akses Kamera...",
+                color = Color.Gray.copy(alpha = 0.5f),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+
+        // Menggambar garis siku (brackets) di ATAS kamera
+        val bracketColor = Color.White
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokeWidth = 4.dp.toPx()
             val bracketLength = 40.dp.toPx()
@@ -138,13 +208,50 @@ fun CameraScannerPlaceholder() {
             drawLine(color = bracketColor, start = Offset(size.width - padding, size.height - padding), end = Offset(size.width - padding - bracketLength, size.height - padding), strokeWidth = strokeWidth)
             drawLine(color = bracketColor, start = Offset(size.width - padding, size.height - padding), end = Offset(size.width - padding, size.height - padding - bracketLength), strokeWidth = strokeWidth)
         }
-
-        Text(
-            text = "Area Kamera",
-            color = Color.Gray.copy(alpha = 0.5f),
-            modifier = Modifier.align(Alignment.Center)
-        )
     }
+}
+
+// 6. Fungsi Composable untuk Menjalankan CameraX
+@Composable
+fun CameraPreviewView() {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    AndroidView(
+        factory = { ctx ->
+            val previewView = PreviewView(ctx)
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+
+                // Menyiapkan surface kamera
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+
+                // Gunakan kamera belakang secara default
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                try {
+                    // Unbind use cases sebelum re-binding
+                    cameraProvider.unbindAll()
+
+                    // Bind kamera ke lifecycle Compose
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview
+                    )
+                } catch (exc: Exception) {
+                    exc.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(ctx))
+
+            previewView
+        },
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @Composable
