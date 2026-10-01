@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -46,14 +47,14 @@ val LightCyanBg = Color(0xFFC4EFFF)
 
 // INI LAMAN HURUF KE HURUF YANG LEBIH BESAR
 @Composable
-fun ToScreenScreen() {
-    // State untuk input teks
-    var messageText by remember {
-        mutableStateOf("Permisi, apakah trans jateng pemberhentian kampus teknik sudah lewat?")
-    }
-
+fun ToScreenScreen(
+    messageText: String,
+    onMessageChange: (String) -> Unit
+) {
     // State untuk ukuran teks
     var selectedSize by remember { mutableStateOf("Ekstra Besar") }
+    // State untuk putar 180 derajat
+    var isRotated by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -86,11 +87,16 @@ fun ToScreenScreen() {
 
         // 3. Preview Section
         SectionTitleWithIcon(icon = Icons.Default.Visibility, title = "PREVIEW LAYAR KOMUNIKASI")
-        CommunicationPreviewCard(text = messageText)
+        CommunicationPreviewCard(
+            text = messageText,
+            selectedSize = selectedSize,
+            isRotated = isRotated,
+            onRotateClick = { isRotated = !isRotated }
+        )
 
         // 4. Input Section
         SectionTitleWithIcon(icon = Icons.Default.Edit, title = "Tulis Pesan Cepat")
-        MessageInputBox(text = messageText, onTextChange = { messageText = it })
+        MessageInputBox(text = messageText, onTextChange = onMessageChange)
 
         // 5. Settings Section
         Row(
@@ -99,7 +105,13 @@ fun ToScreenScreen() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             SectionTitleWithIcon(icon = Icons.Default.Tune, title = "Pengaturan Tampilan", paddingBottom = 0.dp)
-            Row(modifier = Modifier.clickable { /* Reset action */ }) {
+            Row(
+                modifier = Modifier.clickable {
+                    onMessageChange("")
+                    selectedSize = "Ekstra Besar"
+                    isRotated = false
+                }
+            ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = "Reset", color = MaterialTheme.colorScheme.secondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -132,7 +144,18 @@ fun SectionTitleWithIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 @Composable
-fun CommunicationPreviewCard(text: String) {
+fun CommunicationPreviewCard(
+    text: String,
+    selectedSize: String = "Ekstra Besar",
+    isRotated: Boolean = false,
+    onRotateClick: () -> Unit = {}
+) {
+    val (fontSizeValue, lineHeightValue) = when (selectedSize) {
+        "Sedang" -> 18.sp to 26.sp
+        "Besar" -> 28.sp to 38.sp
+        else -> 40.sp to 50.sp   // Ekstra Besar
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -150,15 +173,19 @@ fun CommunicationPreviewCard(text: String) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.ScreenRotation, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Tampilan Normal", color = Color.White, fontSize = 12.sp)
+                    Text(
+                        text = if (isRotated) "Tampilan Terbalik" else "Tampilan Normal",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
                 }
 
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.White.copy(alpha = 0.2f))
+                        .clickable { onRotateClick() }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .clickable { /* TODO: Rotate 180 degrees logic */ }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Sync, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
@@ -170,15 +197,17 @@ fun CommunicationPreviewCard(text: String) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Main Display Text
+            // Main Display Text (ikut diputar kalau isRotated aktif)
             Text(
-                text = text.uppercase(),
-                color = Color.White,
-                fontSize = 22.sp,
+                text = text.uppercase().ifEmpty { "MENUNGGU TEKS..." },
+                color = if (text.isEmpty()) Color.White.copy(alpha = 0.5f) else Color.White,
+                fontSize = fontSizeValue,
                 fontWeight = FontWeight.Black,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 32.sp,
-                modifier = Modifier.fillMaxWidth()
+                lineHeight = lineHeightValue,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(if (isRotated) 180f else 0f)
             )
 
             Spacer(modifier = Modifier.height(32.dp))

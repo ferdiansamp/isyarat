@@ -87,6 +87,9 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val navController = rememberNavController()
 
+    // teks bersama: diisi dari tab "Ke Teks", ditampilkan di tab "Ke Layar"
+    var sharedText by remember { mutableStateOf("") }
+
     Scaffold(
         bottomBar = { BottomNavigationBar(navController) }
     ) { innerPadding ->
@@ -96,15 +99,23 @@ fun MainScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("home") { HomeScreen() }
-            composable("to_text") { ToTextScreen() }
-            composable("to_screen") { ToScreenScreen() }
+            composable("to_text") {
+                ToTextScreen(
+                    recognizedText = sharedText,
+                    onTextChange = { sharedText = it }
+                )
+            }
+            composable("to_screen") {
+                ToScreenScreen(
+                    messageText = sharedText,
+                    onMessageChange = { sharedText = it }
+                )
+            }
             composable("history") { HistoryScreen() }
             composable("kamus") { KamusScreen() }
-//            composable("settings") { DummyScreen("Pengaturan") }
         }
     }
 }
-
 
 // INI BUAT LAMAN BERANDA
 @Composable

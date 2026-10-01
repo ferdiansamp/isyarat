@@ -2,11 +2,10 @@ package com.example.isyarat.ui.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -25,7 +24,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -34,62 +35,157 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.isyarat.HeaderSection
+import com.example.isyarat.camera.DetectionOverlay
+import com.example.isyarat.data.repository.DetectorRepository
+import com.example.isyarat.model.DetectionResult
+
+private const val HOLD_FRAMES = 5          // frame stabil sebelum huruf dicatat
+private const val SPACE_AFTER_MS = 1500L   // tangan hilang segini lama -> spasi otomatis
+private const val REARM_AFTER_MS = 500L    // tangan hilang segini lama -> huruf sama boleh dicatat lagi
 
 @Composable
-fun ToTextScreen() {
+fun ToTextScreen(
+    recognizedText: String,
+    onTextChange: (String) -> Unit
+) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
-    // 1. State untuk mengecek apakah izin kamera sudah diberikan
     var hasCameraPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                    PackageManager.PERMISSION_GRANTED
         )
     }
-
-    // STATE BARU: Mengontrol apakah mode layar penuh aktif atau tidak
     var isFullScreen by remember { mutableStateOf(false) }
 
-    // 2. Launcher untuk meminta izin ke user
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            hasCameraPermission = isGranted
-        }
-    )
+    // --- state hasil deteksi ---
+    var results by remember { mutableStateOf(emptyList<DetectionResult>()) }
+    var detectedLabel by remember { mutableStateOf("") }
+    var detectedConfidence by remember { mutableStateOf(0f) }
 
-    // 3. Meminta izin secara otomatis saat layar ini dibuka
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
+    // --- state penyusun kalimat (tidak perlu memicu recomposition) ---
+    val candidate = remember { arrayOf<String?>(null) }
+    val count = remember { intArrayOf(0) }
+    val armed = remember { booleanArrayOf(true) }
+    val lastHandTime = remember { longArrayOf(0L) }
+    val lastSeen = remember { longArrayOf(0L) }
+
+    // selalu membaca nilai terbaru walau lambda kamera dibuat sekali
+    val latestText by rememberUpdatedState(recognizedText)
+    val latestOnTextChange by rememberUpdatedState(onTextChange)
+
+    fun addSpace() {
+        if (latestText.isNotEmpty() && !latestText.endsWith(" ")) {
+            latestOnTextChange("$latestText ")
         }
     }
 
-    // JIKA MODE LAYAR PENUH AKTIF
-    if (isFullScreen && hasCameraPermission) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            // Kamera menempati seluruh area layar
-            CameraPreviewView()
+    fun append(label: String) {
+        if (label.length > 1) {
+            // kata utuh: HALO, SAYA, SALAM KENAL, dst.
+            val prefix = if (latestText.isNotEmpty() && !latestText.endsWith(" ")) " " else ""
+            latestOnTextChange("$latestText$prefix$label ")
+        } else {
+            latestOnTextChange(latestText + label)
+        }
+    }
 
-            // Tombol "Back" di kiri atas
+    val onDetectionResult: (List<DetectionResult>) -> Unit = { newResults ->
+        mainHandler.post {
+            val now = System.currentTimeMillis()
+            val top = newResults.maxByOrNull { it.confidence }
+
+            // kotak ditahan 0,6 detik supaya tidak berkedip
+            if (newResults.isNotEmpty()) {
+                results = newResults
+                lastSeen[0] = now
+            } else if (now - lastSeen[0] > 600) {
+                results = newResults
+            }
+
+            if (top == null) {
+                val absent = now - lastHandTime[0]
+                if (lastHandTime[0] > 0 && absent >= REARM_AFTER_MS) {
+                    candidate[0] = null
+                    count[0] = 0
+                    armed[0] = true
+                }
+                if (lastHandTime[0] > 0 && absent >= SPACE_AFTER_MS) {
+                    addSpace()
+                    lastHandTime[0] = 0L
+                }
+            } else {
+                lastHandTime[0] = now
+                detectedLabel = top.label
+                detectedConfidence = top.confidence
+
+                if (top.label == candidate[0]) {
+                    count[0]++
+                } else {
+                    candidate[0] = top.label
+                    count[0] = 1
+                    armed[0] = true
+                }
+                if (count[0] >= HOLD_FRAMES && armed[0]) {
+                    append(top.label)
+                    armed[0] = false
+                }
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { hasCameraPermission = it }
+    )
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    // ================= MODE LAYAR PENUH =================
+    if (isFullScreen && hasCameraPermission) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
+                CameraPreviewView(onDetection = onDetectionResult)
+                DetectionOverlay(results)
+            }
+
             Row(
                 modifier = Modifier
+                    .align(Alignment.TopStart)
                     .padding(16.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.4f)) // Sedikit transparan agar mudah dibaca di atas kamera
+                    .background(Color.Black.copy(alpha = 0.4f))
                     .clickable { isFullScreen = false }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Back", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Back", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
+
+            // teks hasil di bagian bawah layar penuh
+            Text(
+                text = recognizedText.ifEmpty { "..." },
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(16.dp)
+            )
         }
     }
-    // JIKA MODE NORMAL AKTIF
+    // ================= MODE NORMAL =================
     else {
         Column(
             modifier = Modifier
@@ -118,65 +214,91 @@ fun ToTextScreen() {
                 )
             }
 
-            // 4. Meneruskan status izin dan aksi klik ke Placeholder Kamera
             CameraScannerPlaceholder(
                 hasPermission = hasCameraPermission,
-                onClick = {
-                    if (hasCameraPermission) {
-                        isFullScreen = true // Memicu transisi ke layar penuh saat area ditekan
-                    }
+                results = results,
+                onClick = { if (hasCameraPermission) isFullScreen = true },
+                onDetection = onDetectionResult
+            )
+
+            TranslationResultCard(
+                resultText = recognizedText.ifEmpty { "Belum ada huruf terdeteksi" },
+                gestureInfo = if (detectedLabel.isNotEmpty())
+                    "Gerakan terdeteksi: $detectedLabel (${(detectedConfidence * 100).toInt()}%)"
+                else
+                    "Arahkan tangan ke kamera untuk mulai mendeteksi",
+                onCopy = { clipboardManager.setText(AnnotatedString(recognizedText)) },
+                onReset = {
+                    onTextChange("")
+                    detectedLabel = ""
+                    detectedConfidence = 0f
+                    candidate[0] = null
+                    count[0] = 0
+                    armed[0] = true
                 }
             )
 
-            TranslationResultCard()
-
-            Button(
-                onClick = {
-                    if (!hasCameraPermission) {
-                        permissionLauncher.launch(Manifest.permission.CAMERA)
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+            // tombol spasi dan hapus
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(if (hasCameraPermission) Icons.Default.PauseCircleOutline else Icons.Default.CameraAlt, contentDescription = "Jeda")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (hasCameraPermission) "Jeda Deteksi" else "Beri Akses Kamera",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Button(
+                    onClick = { addSpace() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) { Text("Spasi") }
+
+                OutlinedButton(
+                    onClick = { if (recognizedText.isNotEmpty()) onTextChange(recognizedText.dropLast(1)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Hapus") }
+            }
+
+            if (!hasCameraPermission) {
+                Button(
+                    onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Beri Akses Kamera", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
 
             Text(
-                text = "Kamera memproses isyarat secara langsung di perangkat secara aman.",
+                text = "Tahan tiap huruf sekitar 1 detik. Turunkan tangan 1,5 detik untuk spasi otomatis. Hasil juga tampil di tab Ke Layar.",
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.tertiary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
             )
         }
     }
 }
 
 @Composable
-fun CameraScannerPlaceholder(hasPermission: Boolean, onClick: () -> Unit) {
+fun CameraScannerPlaceholder(
+    hasPermission: Boolean,
+    results: List<DetectionResult>,
+    onClick: () -> Unit,
+    onDetection: (List<DetectionResult>) -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f) // Membuatnya persegi
+            .aspectRatio(3f / 4f) // sama dengan rasio frame kamera supaya kotak pas di tangan
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.background)
-            .clickable { onClick() } // Menjadikan keseluruhan area kotak dapat ditekan
+            .clickable { onClick() }
     ) {
-        // 5. Jika diberi izin, tampilkan Kamera Asli. Jika tidak, tampilkan teks.
         if (hasPermission) {
-            CameraPreviewView()
+            CameraPreviewView(onDetection = onDetection)
+            DetectionOverlay(results)   // kotak + huruf, tepat di atas kamera
         } else {
             Text(
                 text = "Menunggu Akses Kamera...",
@@ -185,77 +307,59 @@ fun CameraScannerPlaceholder(hasPermission: Boolean, onClick: () -> Unit) {
             )
         }
 
-        // Menggambar garis siku (brackets) di ATAS kamera
         val bracketColor = Color.White
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokeWidth = 4.dp.toPx()
             val bracketLength = 40.dp.toPx()
             val padding = 40.dp.toPx()
 
-            // Top Left
-            drawLine(color = bracketColor, start = Offset(padding, padding), end = Offset(padding + bracketLength, padding), strokeWidth = strokeWidth)
-            drawLine(color = bracketColor, start = Offset(padding, padding), end = Offset(padding, padding + bracketLength), strokeWidth = strokeWidth)
+            drawLine(bracketColor, Offset(padding, padding), Offset(padding + bracketLength, padding), strokeWidth)
+            drawLine(bracketColor, Offset(padding, padding), Offset(padding, padding + bracketLength), strokeWidth)
 
-            // Top Right
-            drawLine(color = bracketColor, start = Offset(size.width - padding, padding), end = Offset(size.width - padding - bracketLength, padding), strokeWidth = strokeWidth)
-            drawLine(color = bracketColor, start = Offset(size.width - padding, padding), end = Offset(size.width - padding, padding + bracketLength), strokeWidth = strokeWidth)
+            drawLine(bracketColor, Offset(size.width - padding, padding), Offset(size.width - padding - bracketLength, padding), strokeWidth)
+            drawLine(bracketColor, Offset(size.width - padding, padding), Offset(size.width - padding, padding + bracketLength), strokeWidth)
 
-            // Bottom Left
-            drawLine(color = bracketColor, start = Offset(padding, size.height - padding), end = Offset(padding + bracketLength, size.height - padding), strokeWidth = strokeWidth)
-            drawLine(color = bracketColor, start = Offset(padding, size.height - padding), end = Offset(padding, size.height - padding - bracketLength), strokeWidth = strokeWidth)
+            drawLine(bracketColor, Offset(padding, size.height - padding), Offset(padding + bracketLength, size.height - padding), strokeWidth)
+            drawLine(bracketColor, Offset(padding, size.height - padding), Offset(padding, size.height - padding - bracketLength), strokeWidth)
 
-            // Bottom Right
-            drawLine(color = bracketColor, start = Offset(size.width - padding, size.height - padding), end = Offset(size.width - padding - bracketLength, size.height - padding), strokeWidth = strokeWidth)
-            drawLine(color = bracketColor, start = Offset(size.width - padding, size.height - padding), end = Offset(size.width - padding, size.height - padding - bracketLength), strokeWidth = strokeWidth)
+            drawLine(bracketColor, Offset(size.width - padding, size.height - padding), Offset(size.width - padding - bracketLength, size.height - padding), strokeWidth)
+            drawLine(bracketColor, Offset(size.width - padding, size.height - padding), Offset(size.width - padding, size.height - padding - bracketLength), strokeWidth)
         }
     }
 }
 
-// 6. Fungsi Composable untuk Menjalankan CameraX
 @Composable
-fun CameraPreviewView() {
+fun CameraPreviewView(onDetection: (List<DetectionResult>) -> Unit = {}) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnDetection by rememberUpdatedState(onDetection)
 
-    AndroidView(
-        factory = { ctx ->
-            val previewView = PreviewView(ctx)
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+    val previewView = remember {
+        PreviewView(context).apply {
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
+    }
+    val detectorRepository = remember { DetectorRepository(lifecycleOwner, context) }
 
-            cameraProviderFuture.addListener({
-                val cameraProvider = cameraProviderFuture.get()
+    DisposableEffect(Unit) {
+        detectorRepository.startDetection(previewView) { results ->
+            currentOnDetection(results)
+        }
+        onDispose { detectorRepository.stopDetection() }
+    }
 
-                // Menyiapkan surface kamera
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
-
-                // Gunakan kamera belakang secara default
-                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                try {
-                    // Unbind use cases sebelum re-binding
-                    cameraProvider.unbindAll()
-
-                    // Bind kamera ke lifecycle Compose
-                    cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        cameraSelector,
-                        preview
-                    )
-                } catch (exc: Exception) {
-                    exc.printStackTrace()
-                }
-            }, ContextCompat.getMainExecutor(ctx))
-
-            previewView
-        },
-        modifier = Modifier.fillMaxSize()
-    )
+    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 }
 
 @Composable
-fun TranslationResultCard() {
+fun TranslationResultCard(
+    resultText: String = "\"Halo, senang bertemu dengan Anda\"",
+    gestureInfo: String = "Gerakan terdeteksi: Salam pembuka + Senang",
+    onCopy: () -> Unit = {},
+    onSave: () -> Unit = {},
+    onReset: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -264,7 +368,6 @@ fun TranslationResultCard() {
             .padding(16.dp)
     ) {
         Column {
-            // Header Result
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
@@ -279,7 +382,6 @@ fun TranslationResultCard() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // White Box with Text
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -289,7 +391,7 @@ fun TranslationResultCard() {
             ) {
                 Column {
                     Text(
-                        text = "\"Halo, senang bertemu dengan Anda\"",
+                        text = resultText,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -299,7 +401,7 @@ fun TranslationResultCard() {
                         Icon(Icons.Default.Gesture, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Gerakan terdeteksi: Salam pembuka + Senang",
+                            text = gestureInfo,
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onTertiary,
                             lineHeight = 16.sp
@@ -310,26 +412,25 @@ fun TranslationResultCard() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Action Buttons Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                ActionPill(icon = Icons.Default.ContentCopy, text = "Salin")
-                ActionPill(icon = Icons.Default.Save, text = "Simpan")
-                ActionPill(icon = Icons.Default.Refresh, text = "Ulangi")
+                ActionPill(icon = Icons.Default.ContentCopy, text = "Salin", onClick = onCopy)
+                ActionPill(icon = Icons.Default.Save, text = "Simpan", onClick = onSave)
+                ActionPill(icon = Icons.Default.Refresh, text = "Ulangi", onClick = onReset)
             }
         }
     }
 }
 
 @Composable
-fun ActionPill(icon: ImageVector, text: String) {
+fun ActionPill(icon: ImageVector, text: String, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
-            .clickable { /* TODO: Action onClick */ }
+            .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
