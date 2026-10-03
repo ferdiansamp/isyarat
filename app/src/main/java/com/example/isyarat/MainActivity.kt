@@ -333,7 +333,6 @@ fun BottomNavigationBar(navController: NavController) {
         Triple("Beranda", Icons.Default.Home, "home"),
         Triple("Ke Teks", Icons.Default.PanTool, "to_text"),
         Triple("Ke Layar", Icons.Default.Fullscreen, "to_screen"),
-        Triple("Riwayat", Icons.Default.History, "history"),
         Triple("Kamus", Icons.Default.MenuBook, "kamus"),
 //        Triple("Pengaturan", Icons.Default.Settings, "settings")
     )
