@@ -29,8 +29,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 @Composable
-fun KamusScreen() {
-    val signList = remember { getSignListFromDrawables() }
+fun KamusScreen(category: KamusCategory) {
+    val signList = remember(category) { getSignListByCategory(category) }
     var selectedEntry by remember { mutableStateOf<SignEntry?>(null) }
 
     LazyVerticalGrid(
@@ -45,7 +45,7 @@ fun KamusScreen() {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Text(
-                text = "Kamus Bahasa Isyarat",
+                text = category.label,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -55,7 +55,7 @@ fun KamusScreen() {
         if (signList.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    text = "Belum ada gambar kamus. Tambahkan drawable dengan prefix \"sign_\".",
+                    text = "Belum ada gambar untuk kategori ini. Tambahkan drawable dengan prefix \"${category.prefix}\".",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onTertiary
                 )

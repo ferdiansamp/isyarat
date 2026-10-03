@@ -33,6 +33,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.Composable
 import com.example.isyarat.ui.theme.IsyaratTheme
 import com.example.isyarat.ui.kamus.KamusScreen
+import com.example.isyarat.ui.kamus.KamusCategoryScreen
+import com.example.isyarat.ui.kamus.KamusCategory
+import androidx.compose.ui.res.painterResource
+
 // --- DATA CLASS UNTUK DINAMIS ---
 data class TranslationMode(
     val title: String,
@@ -111,8 +115,16 @@ fun MainScreen() {
                     onMessageChange = { sharedText = it }
                 )
             }
-//            composable("history") { HistoryScreen() }
-            composable("kamus") { KamusScreen() }
+            //composable("history") { HistoryScreen() }
+            composable("kamus") {
+                KamusCategoryScreen(onCategorySelected = { category ->
+                    navController.navigate("kamus_detail/${category.name}")
+                })
+            }
+            composable("kamus_detail/{category}") { backStackEntry ->
+                val categoryName = backStackEntry.arguments?.getString("category") ?: KamusCategory.HURUF.name
+                KamusScreen(category = KamusCategory.valueOf(categoryName))
+            }
         }
     }
 }
@@ -145,10 +157,10 @@ fun HomeScreen() {
         }
 
         // 4. Recent Activities
-//        item { SectionHeader("Aktivitas Terakhir", "Lihat Semua >", linkColor = MaterialTheme.colorScheme.secondary) }
-//        items(activityList) { activity ->
-//            ActivityCard(activity)
-//        }
+        item { SectionHeader("Aktivitas Terakhir", "Lihat Semua >", linkColor = MaterialTheme.colorScheme.secondary) }
+        items(activityList) { activity ->
+            ActivityCard(activity)
+        }
     }
 }
 
@@ -157,9 +169,9 @@ fun HomeScreen() {
 fun HeaderSection() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            imageVector = Icons.Default.PanTool, // Placeholder Logo
+            painter = painterResource(id = R.drawable.gemini_generated_image_cd673hcd673hcd67__1__removebg_preview),
             contentDescription = "Logo",
-            tint = MaterialTheme.colorScheme.primary,
+            tint = MaterialTheme.colorScheme.primary, // Hapus baris ini jika logo memiliki warna aslinya sendiri
             modifier = Modifier.size(32.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -282,49 +294,49 @@ fun TranslationModeCard(mode: TranslationMode) {
     }
 }
 
-//@Composable
-//fun ActivityCard(activity: RecentActivity) {
-//    val iconBgColor = if (activity.isSignToText) Color(0xFFBBE5ED) else Color(0xFFDCD6F7)
-//    val badgeBgColor = if (activity.isSignToText) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-//    val iconMain = if (activity.isSignToText) Icons.Default.PanTool else Icons.Default.TextFields
-//
-//    Row(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .clip(RoundedCornerShape(12.dp))
-//            .background(MaterialTheme.colorScheme.background)
-//            .padding(12.dp),
-//        verticalAlignment = Alignment.CenterVertically
-//    ) {
-//        Box(
-//            modifier = Modifier
-//                .size(48.dp)
-//                .clip(CircleShape)
-//                .background(iconBgColor),
-//            contentAlignment = Alignment.Center
-//        ) {
-//            Icon(iconMain, contentDescription = null, tint = badgeBgColor)
-//        }
-//        Spacer(modifier = Modifier.width(12.dp))
-//        Column(modifier = Modifier.weight(1f)) {
-//            Row(verticalAlignment = Alignment.CenterVertically) {
-//                Box(
-//                    modifier = Modifier
-//                        .clip(RoundedCornerShape(16.dp))
-//                        .background(badgeBgColor)
-//                        .padding(horizontal = 8.dp, vertical = 2.dp)
-//                ) {
-//                    Text(text = activity.typeTitle, color = Color.White, fontSize = 10.sp)
-//                }
-//                Spacer(modifier = Modifier.width(8.dp))
-//                Text(text = activity.time, fontSize = 12.sp, color = MaterialTheme.colorScheme.onTertiary)
-//            }
-//            Spacer(modifier = Modifier.height(4.dp))
-//            Text(text = activity.contentText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.tertiary)
-//        }
-//        Icon(activity.trailingIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiary)
-//    }
-//}
+@Composable
+fun ActivityCard(activity: RecentActivity) {
+    val iconBgColor = if (activity.isSignToText) Color(0xFFBBE5ED) else Color(0xFFDCD6F7)
+    val badgeBgColor = if (activity.isSignToText) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+    val iconMain = if (activity.isSignToText) Icons.Default.PanTool else Icons.Default.TextFields
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.background)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(iconBgColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(iconMain, contentDescription = null, tint = badgeBgColor)
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(badgeBgColor)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(text = activity.typeTitle, color = Color.White, fontSize = 10.sp)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = activity.time, fontSize = 12.sp, color = MaterialTheme.colorScheme.onTertiary)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = activity.contentText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.tertiary)
+        }
+        Icon(activity.trailingIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiary)
+    }
+}
 
 // INI TOMBOL NAVIGASI
 @Composable
@@ -333,7 +345,7 @@ fun BottomNavigationBar(navController: NavController) {
         Triple("Beranda", Icons.Default.Home, "home"),
         Triple("Ke Teks", Icons.Default.PanTool, "to_text"),
         Triple("Ke Layar", Icons.Default.Fullscreen, "to_screen"),
-//        Triple("Riwayat", Icons.Default.History, "history"),
+        //Triple("Riwayat", Icons.Default.History, "history"),
         Triple("Kamus", Icons.Default.MenuBook, "kamus"),
 //        Triple("Pengaturan", Icons.Default.Settings, "settings")
     )
