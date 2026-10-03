@@ -123,7 +123,10 @@ fun MainScreen() {
             }
             composable("kamus_detail/{category}") { backStackEntry ->
                 val categoryName = backStackEntry.arguments?.getString("category") ?: KamusCategory.HURUF.name
-                KamusScreen(category = KamusCategory.valueOf(categoryName))
+                KamusScreen(
+                    category = KamusCategory.valueOf(categoryName),
+                    onBackClick = { navController.popBackStack() }
+                )
             }
         }
     }
