@@ -7,17 +7,19 @@ data class SignEntry(
     val imageRes: Int
 )
 
-fun getSignListFromDrawables(): List<SignEntry> {
+enum class KamusCategory(val prefix: String, val label: String) {
+    HURUF("huruf_", "Huruf"),
+    KATA("kata_", "Kata Sehari-hari")
+}
+
+fun getSignListByCategory(category: KamusCategory): List<SignEntry> {
     val fields = R.drawable::class.java.fields
     return fields
-        .filter { it.name.startsWith("sign_") }
+        .filter { it.name.startsWith(category.prefix) }
         .mapNotNull { field ->
             val resId = field.getInt(null)
-            val kata = field.name
-                .removePrefix("sign_")
-                .replace("_", " ")
-                .split(" ")
-                .joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+            val rawName = field.name.removePrefix(category.prefix).replace("_", " ")
+            val kata = rawName.replaceFirstChar { it.uppercase() }
             SignEntry(kata = kata, imageRes = resId)
         }
         .sortedBy { it.kata }

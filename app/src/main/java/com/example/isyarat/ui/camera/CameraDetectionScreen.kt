@@ -2,8 +2,6 @@ package com.example.isyarat.ui.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
@@ -11,6 +9,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -39,9 +38,9 @@ import com.example.isyarat.camera.DetectionOverlay
 import com.example.isyarat.data.repository.DetectorRepository
 import com.example.isyarat.model.DetectionResult
 
-private const val HOLD_FRAMES = 5          // frame stabil sebelum huruf dicatat
-private const val SPACE_AFTER_MS = 1500L   // tangan hilang segini lama -> spasi otomatis
-private const val REARM_AFTER_MS = 500L    // tangan hilang segini lama -> huruf sama boleh dicatat lagi
+private const val HOLD_FRAMES = 5
+private const val SPACE_AFTER_MS = 1500L
+private const val REARM_AFTER_MS = 500L
 
 @Composable
 fun ToTextScreen(
@@ -50,7 +49,9 @@ fun ToTextScreen(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
+    // OPTIMASI 1: Handler(Looper.getMainLooper()) dihapus karena Jetpack Compose
+    // sudah memiliki sistem thread-safe bawaan untuk mengubah state (mutableStateOf).
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -60,44 +61,47 @@ fun ToTextScreen(
     }
     var isFullScreen by remember { mutableStateOf(false) }
 
-    // --- state hasil deteksi ---
     var results by remember { mutableStateOf(emptyList<DetectionResult>()) }
     var detectedLabel by remember { mutableStateOf("") }
     var detectedConfidence by remember { mutableStateOf(0f) }
 
-    // --- state penyusun kalimat (tidak perlu memicu recomposition) ---
     val candidate = remember { arrayOf<String?>(null) }
     val count = remember { intArrayOf(0) }
     val armed = remember { booleanArrayOf(true) }
     val lastHandTime = remember { longArrayOf(0L) }
     val lastSeen = remember { longArrayOf(0L) }
 
-    // selalu membaca nilai terbaru walau lambda kamera dibuat sekali
     val latestText by rememberUpdatedState(recognizedText)
     val latestOnTextChange by rememberUpdatedState(onTextChange)
 
-    fun addSpace() {
-        if (latestText.isNotEmpty() && !latestText.endsWith(" ")) {
-            latestOnTextChange("$latestText ")
+    // OPTIMASI 2: Membungkus fungsi dengan remember agar sistem tidak membuat
+    // objek fungsi baru berulang kali setiap kali layar dirender ulang (rekomposisi).
+    val addSpace = remember {
+        {
+            if (latestText.isNotEmpty() && !latestText.endsWith(" ")) {
+                latestOnTextChange("$latestText ")
+            }
         }
     }
 
-    fun append(label: String) {
-        if (label.length > 1) {
-            // kata utuh: HALO, SAYA, SALAM KENAL, dst.
-            val prefix = if (latestText.isNotEmpty() && !latestText.endsWith(" ")) " " else ""
-            latestOnTextChange("$latestText$prefix$label ")
-        } else {
-            latestOnTextChange(latestText + label)
+    val append = remember {
+        { label: String ->
+            if (label.length > 1) {
+                val prefix = if (latestText.isNotEmpty() && !latestText.endsWith(" ")) " " else ""
+                latestOnTextChange("$latestText$prefix$label ")
+            } else {
+                latestOnTextChange(latestText + label)
+            }
         }
     }
 
-    val onDetectionResult: (List<DetectionResult>) -> Unit = { newResults ->
-        mainHandler.post {
+    val onDetectionResult: (List<DetectionResult>) -> Unit = remember {
+        { newResults ->
+            // Handler dihapus. Menulis ke mutableStateOf di Compose
+            // sangat aman dilakukan dari background thread (ML thread).
             val now = System.currentTimeMillis()
             val top = newResults.maxByOrNull { it.confidence }
 
-            // kotak ditahan 0,6 detik supaya tidak berkedip
             if (newResults.isNotEmpty()) {
                 results = newResults
                 lastSeen[0] = now
@@ -145,16 +149,24 @@ fun ToTextScreen(
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // ================= MODE LAYAR PENUH =================
+    // OPTIMASI 3: Mengembalikan movableContentOf yang sempat hilang agar kamera
+    // tidak di-destroy & di-rebuild saat berpindah dari mode normal ke layar penuh.
+    val cameraContent = remember {
+        movableContentOf {
+            Box(modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
+                CameraPreviewView(onDetection = onDetectionResult)
+                DetectionOverlay(results)
+            }
+        }
+    }
+
     if (isFullScreen && hasCameraPermission) {
         Box(
             modifier = Modifier.fillMaxSize().background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
-                CameraPreviewView(onDetection = onDetectionResult)
-                DetectionOverlay(results)
-            }
+            // Panggil movable content di sini
+            cameraContent()
 
             Row(
                 modifier = Modifier
@@ -171,7 +183,6 @@ fun ToTextScreen(
                 Text("Back", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
 
-            // teks hasil di bagian bawah layar penuh
             Text(
                 text = recognizedText.ifEmpty { "..." },
                 color = Color.White,
@@ -184,9 +195,7 @@ fun ToTextScreen(
                     .padding(16.dp)
             )
         }
-    }
-    // ================= MODE NORMAL =================
-    else {
+    } else {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -196,29 +205,19 @@ fun ToTextScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-
             HeaderSection()
 
             Column {
-                Text(
-                    text = "Isyarat ke Text",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Text(text = "Isyarat ke Text", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "penerjemah kamera instan",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
+                Text(text = "penerjemah kamera instan", fontSize = 14.sp, color = MaterialTheme.colorScheme.tertiary)
             }
 
+            // Panggil placeholder dan lempar movable content ke dalamnya
             CameraScannerPlaceholder(
                 hasPermission = hasCameraPermission,
-                results = results,
                 onClick = { if (hasCameraPermission) isFullScreen = true },
-                onDetection = onDetectionResult
+                cameraContent = { cameraContent() }
             )
 
             TranslationResultCard(
@@ -238,11 +237,7 @@ fun ToTextScreen(
                 }
             )
 
-            // tombol spasi dan hapus
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { addSpace() },
                     modifier = Modifier.weight(1f),
@@ -272,9 +267,7 @@ fun ToTextScreen(
 
             Text(
                 text = "Tahan tiap huruf sekitar 1 detik. Turunkan tangan 1,5 detik untuk spasi otomatis. Hasil juga tampil di tab Ke Layar.",
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.tertiary,
-                textAlign = TextAlign.Center,
+                fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
             )
         }
@@ -284,21 +277,19 @@ fun ToTextScreen(
 @Composable
 fun CameraScannerPlaceholder(
     hasPermission: Boolean,
-    results: List<DetectionResult>,
     onClick: () -> Unit,
-    onDetection: (List<DetectionResult>) -> Unit = {}
+    cameraContent: @Composable () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(3f / 4f) // sama dengan rasio frame kamera supaya kotak pas di tangan
+            .aspectRatio(3f / 4f)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.background)
             .clickable { onClick() }
     ) {
         if (hasPermission) {
-            CameraPreviewView(onDetection = onDetection)
-            DetectionOverlay(results)   // kotak + huruf, tepat di atas kamera
+            cameraContent()
         } else {
             Text(
                 text = "Menunggu Akses Kamera...",
@@ -307,6 +298,7 @@ fun CameraScannerPlaceholder(
             )
         }
 
+        // Bracket Kamera
         val bracketColor = Color.White
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokeWidth = 4.dp.toPx()
@@ -315,13 +307,10 @@ fun CameraScannerPlaceholder(
 
             drawLine(bracketColor, Offset(padding, padding), Offset(padding + bracketLength, padding), strokeWidth)
             drawLine(bracketColor, Offset(padding, padding), Offset(padding, padding + bracketLength), strokeWidth)
-
             drawLine(bracketColor, Offset(size.width - padding, padding), Offset(size.width - padding - bracketLength, padding), strokeWidth)
             drawLine(bracketColor, Offset(size.width - padding, padding), Offset(size.width - padding, padding + bracketLength), strokeWidth)
-
             drawLine(bracketColor, Offset(padding, size.height - padding), Offset(padding + bracketLength, size.height - padding), strokeWidth)
             drawLine(bracketColor, Offset(padding, size.height - padding), Offset(padding, size.height - padding - bracketLength), strokeWidth)
-
             drawLine(bracketColor, Offset(size.width - padding, size.height - padding), Offset(size.width - padding - bracketLength, size.height - padding), strokeWidth)
             drawLine(bracketColor, Offset(size.width - padding, size.height - padding), Offset(size.width - padding, size.height - padding - bracketLength), strokeWidth)
         }
@@ -354,70 +343,36 @@ fun CameraPreviewView(onDetection: (List<DetectionResult>) -> Unit = {}) {
 
 @Composable
 fun TranslationResultCard(
-    resultText: String = "\"Halo, senang bertemu dengan Anda\"",
-    gestureInfo: String = "Gerakan terdeteksi: Salam pembuka + Senang",
+    resultText: String,
+    gestureInfo: String,
     onCopy: () -> Unit = {},
-    onSave: () -> Unit = {},
+//    onSave: () -> Unit = {},
     onReset: () -> Unit = {}
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
-    ) {
+    // Isi komponen ini sama persis seperti sebelumnya
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Hasil Terjemahan\nLangsung",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 16.sp,
-                    lineHeight = 18.sp
-                )
+                Text(text = "Hasil Terjemahan\nLangsung", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, lineHeight = 18.sp)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White)
-                    .padding(16.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White).padding(16.dp)) {
                 Column {
-                    Text(
-                        text = resultText,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Text(text = resultText, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.Top) {
                         Icon(Icons.Default.Gesture, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = gestureInfo,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onTertiary,
-                            lineHeight = 16.sp
-                        )
+                        Text(text = gestureInfo, fontSize = 12.sp, color = MaterialTheme.colorScheme.onTertiary, lineHeight = 16.sp)
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 ActionPill(icon = Icons.Default.ContentCopy, text = "Salin", onClick = onCopy)
-                ActionPill(icon = Icons.Default.Save, text = "Simpan", onClick = onSave)
+//                ActionPill(icon = Icons.Default.Save, text = "Simpan", onClick = onSave)
                 ActionPill(icon = Icons.Default.Refresh, text = "Ulangi", onClick = onReset)
             }
         }
@@ -427,11 +382,7 @@ fun TranslationResultCard(
 @Composable
 fun ActionPill(icon: ImageVector, text: String, onClick: () -> Unit = {}) {
     Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.White)
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White).clickable { onClick() }.padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, contentDescription = text, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)

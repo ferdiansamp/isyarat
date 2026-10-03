@@ -1,7 +1,6 @@
 package com.example.isyarat
 
 import com.example.isyarat.ui.camera.ToTextScreen
-import HistoryScreen
 import ToScreenScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -30,15 +28,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.runtime.Composable
 import com.example.isyarat.ui.theme.IsyaratTheme
 import com.example.isyarat.ui.kamus.KamusScreen
+import com.example.isyarat.ui.kamus.KamusCategoryScreen
+import com.example.isyarat.ui.kamus.KamusCategory
+import androidx.compose.ui.res.painterResource
+
 // --- DATA CLASS UNTUK DINAMIS ---
 data class TranslationMode(
     val title: String,
     val description: String,
     val icon: ImageVector,
-    val buttonText: String
+    val buttonText: String,
+    val routeId: String
 )
 
 data class RecentActivity(
@@ -53,22 +55,18 @@ data class RecentActivity(
 val modeList = listOf(
     TranslationMode(
         title = "Isyarat ke Text",
-        description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit",
+        description = "Mentranslasikan gerakan tangan ke dalam huruf dan atau kata sehari-hari menurut kamus BISINDO",
         icon = Icons.Default.Videocam,
-        buttonText = "Mulai Kamera"
+        buttonText = "Mulai Kamera",
+        routeId = "to_text" // Tujuan: Ke Teks
     ),
     TranslationMode(
         title = "Text ke Layar",
-        description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit",
+        description = "Memperbesar ukuran Teks yang diketik untuk memperjelas kalimat kepada lawan bicara",
         icon = Icons.Default.Fullscreen,
-        buttonText = "Mulai Kamera"
+        buttonText = "Ketik Text",
+        routeId = "to_screen" // Tujuan: Ke Layar
     )
-)
-
-val activityList = listOf(
-    RecentActivity("Isyarat → Teks", true, "10 mnt lalu", "\"Selamat pagi, apa kabar?\"", Icons.Default.VolumeUp),
-    RecentActivity("Teks → Layar", false, "1 jam lalu", "\"Di mana halte bus terdekat?\"", Icons.Default.Fullscreen),
-    RecentActivity("Isyarat → Teks", true, "Kemarin", "\"Terima kasih banyak atas bantuannya\"", Icons.Default.VolumeUp)
 )
 
 class MainActivity : ComponentActivity() {
@@ -98,7 +96,25 @@ fun MainScreen() {
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen() }
+            composable("home") {
+                // UBAHAN: Mengirimkan perintah navigasi ke HomeScreen
+                HomeScreen(
+                    onNavigateToText = {
+                        navController.navigate("to_text") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToScreen = {
+                        navController.navigate("to_screen") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
             composable("to_text") {
                 ToTextScreen(
                     recognizedText = sharedText,
@@ -111,15 +127,28 @@ fun MainScreen() {
                     onMessageChange = { sharedText = it }
                 )
             }
-            composable("history") { HistoryScreen() }
-            composable("kamus") { KamusScreen() }
+            composable("kamus") {
+                KamusCategoryScreen(onCategorySelected = { category ->
+                    navController.navigate("kamus_detail/${category.name}")
+                })
+            }
+            composable("kamus_detail/{category}") { backStackEntry ->
+                val categoryName = backStackEntry.arguments?.getString("category") ?: KamusCategory.HURUF.name
+                KamusScreen(
+                    category = KamusCategory.valueOf(categoryName),
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
 
 // INI BUAT LAMAN BERANDA
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onNavigateToText: () -> Unit,   // TAMBAHAN: Parameter aksi
+    onNavigateToScreen: () -> Unit  // TAMBAHAN: Parameter aksi
+) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -141,13 +170,14 @@ fun HomeScreen() {
         // 3. Translation Modes
         item { SectionHeader("Pilih Mode Terjemahan", "2 Mode Tersedia") }
         items(modeList) { mode ->
-            TranslationModeCard(mode)
-        }
-
-        // 4. Recent Activities
-        item { SectionHeader("Aktivitas Terakhir", "Lihat Semua >", linkColor = MaterialTheme.colorScheme.secondary) }
-        items(activityList) { activity ->
-            ActivityCard(activity)
+            // UBAHAN: Menentukan aksi klik berdasarkan routeId dari data class
+            TranslationModeCard(
+                mode = mode,
+                onClick = {
+                    if (mode.routeId == "to_text") onNavigateToText()
+                    else if (mode.routeId == "to_screen") onNavigateToScreen()
+                }
+            )
         }
     }
 }
@@ -157,9 +187,9 @@ fun HomeScreen() {
 fun HeaderSection() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            imageVector = Icons.Default.PanTool, // Placeholder Logo
+            painter = painterResource(id = R.drawable.gemini_generated_image_cd673hcd673hcd67__1__removebg_preview),
             contentDescription = "Logo",
-            tint = MaterialTheme.colorScheme.primary,
+            tint = MaterialTheme.colorScheme.primary, // Hapus baris ini jika logo memiliki warna aslinya sendiri
             modifier = Modifier.size(32.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -208,7 +238,7 @@ fun BannerSection() {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Jembatan komunikasi inklusif antara SIBI/BISINDO dan teks tulisan secara instan dan akurat.",
+                text = "Jembatan komunikasi inklusif antara BISINDO dan teks tulisan secara instan dan akurat.",
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 14.sp,
                 lineHeight = 20.sp
@@ -230,12 +260,16 @@ fun SectionHeader(title: String, subtitle: String, linkColor: Color = MaterialTh
 }
 
 @Composable
-fun TranslationModeCard(mode: TranslationMode) {
+fun TranslationModeCard(
+    mode: TranslationMode,
+    onClick: () -> Unit // TAMBAHAN: Menerima perintah klik
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.background)
+            .clickable { onClick() } // Seluruh kartu bisa ditekan
             .padding(16.dp)
     ) {
         Column {
@@ -269,7 +303,7 @@ fun TranslationModeCard(mode: TranslationMode) {
                     .align(Alignment.End)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.secondary)
-                    .clickable { /* TODO Action */ }
+                    // .clickable { onClick() } dihapus dari sini agar keseluruhan Box utama yang bereaksi
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -282,50 +316,6 @@ fun TranslationModeCard(mode: TranslationMode) {
     }
 }
 
-@Composable
-fun ActivityCard(activity: RecentActivity) {
-    val iconBgColor = if (activity.isSignToText) Color(0xFFBBE5ED) else Color(0xFFDCD6F7)
-    val badgeBgColor = if (activity.isSignToText) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-    val iconMain = if (activity.isSignToText) Icons.Default.PanTool else Icons.Default.TextFields
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.background)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(iconBgColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(iconMain, contentDescription = null, tint = badgeBgColor)
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(badgeBgColor)
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(text = activity.typeTitle, color = Color.White, fontSize = 10.sp)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = activity.time, fontSize = 12.sp, color = MaterialTheme.colorScheme.onTertiary)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = activity.contentText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.tertiary)
-        }
-        Icon(activity.trailingIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiary)
-    }
-}
-
 // INI TOMBOL NAVIGASI
 @Composable
 fun BottomNavigationBar(navController: NavController) {
@@ -334,7 +324,6 @@ fun BottomNavigationBar(navController: NavController) {
         Triple("Ke Teks", Icons.Default.PanTool, "to_text"),
         Triple("Ke Layar", Icons.Default.Fullscreen, "to_screen"),
         Triple("Kamus", Icons.Default.MenuBook, "kamus"),
-//        Triple("Pengaturan", Icons.Default.Settings, "settings")
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -368,13 +357,5 @@ fun BottomNavigationBar(navController: NavController) {
                 )
             )
         }
-    }
-}
-
-// INI DUMMY DOANG :V
-@Composable
-fun DummyScreen(title: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Halaman $title", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     }
 }

@@ -25,12 +25,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 @Composable
-fun KamusScreen() {
-    val signList = remember { getSignListFromDrawables() }
+fun KamusScreen(category: KamusCategory, onBackClick: () -> Unit) {
+    val signList = remember(category) { getSignListByCategory(category) }
     var selectedEntry by remember { mutableStateOf<SignEntry?>(null) }
 
     LazyVerticalGrid(
@@ -44,18 +45,28 @@ fun KamusScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            Text(
-                text = "Kamus Bahasa Isyarat",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Kembali",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = category.label,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         if (signList.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    text = "Belum ada gambar kamus. Tambahkan drawable dengan prefix \"sign_\".",
+                    text = "Belum ada gambar untuk kategori ini. Tambahkan drawable dengan prefix \"${category.prefix}\".",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onTertiary
                 )
