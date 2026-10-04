@@ -1,35 +1,26 @@
-0
-1
 A
 B
-BAGUS
 C
 D
 E
 F
 G
 H
-HALO
 I
 J
 K
 L
 M
 N
-NAMA
 O
 P
+Q
 R
 S
-SALAM KENAL
-SAYA
-SIAPA
 T
-TERIMA KASIH
 U
 V
 W
 X
 Y
-YA
 Z
