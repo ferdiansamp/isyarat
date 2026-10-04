@@ -97,7 +97,6 @@ fun MainScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("home") {
-                // UBAHAN: Mengirimkan perintah navigasi ke HomeScreen
                 HomeScreen(
                     onNavigateToText = {
                         navController.navigate("to_text") {
@@ -170,7 +169,6 @@ fun HomeScreen(
         // 3. Translation Modes
         item { SectionHeader("Pilih Mode Terjemahan", "2 Mode Tersedia") }
         items(modeList) { mode ->
-            // UBAHAN: Menentukan aksi klik berdasarkan routeId dari data class
             TranslationModeCard(
                 mode = mode,
                 onClick = {
@@ -189,7 +187,7 @@ fun HeaderSection() {
         Icon(
             painter = painterResource(id = R.drawable.gemini_generated_image_cd673hcd673hcd67__1__removebg_preview),
             contentDescription = "Logo",
-            tint = MaterialTheme.colorScheme.primary, // Hapus baris ini jika logo memiliki warna aslinya sendiri
+//            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(32.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))

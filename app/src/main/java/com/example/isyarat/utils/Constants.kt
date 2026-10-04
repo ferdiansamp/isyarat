@@ -1,7 +1,7 @@
 package com.example.isyarat.utils
 
 object Constants {
-    const val MODEL_PATH = "best.tflite"
+    const val MODEL_PATH = "best_int8.tflite"
     const val LABELS_PATH = "labels.txt"
 
     const val INPUT_SIZE = 416
