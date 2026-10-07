@@ -50,8 +50,6 @@ fun ToTextScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 
-    // OPTIMASI 1: Handler(Looper.getMainLooper()) dihapus karena Jetpack Compose
-    // sudah memiliki sistem thread-safe bawaan untuk mengubah state (mutableStateOf).
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -74,8 +72,6 @@ fun ToTextScreen(
     val latestText by rememberUpdatedState(recognizedText)
     val latestOnTextChange by rememberUpdatedState(onTextChange)
 
-    // OPTIMASI 2: Membungkus fungsi dengan remember agar sistem tidak membuat
-    // objek fungsi baru berulang kali setiap kali layar dirender ulang (rekomposisi).
     val addSpace = remember {
         {
             if (latestText.isNotEmpty() && !latestText.endsWith(" ")) {
@@ -95,10 +91,10 @@ fun ToTextScreen(
         }
     }
 
+    // kotak
     val onDetectionResult: (List<DetectionResult>) -> Unit = remember {
         { newResults ->
-            // Handler dihapus. Menulis ke mutableStateOf di Compose
-            // sangat aman dilakukan dari background thread (ML thread).
+
             val now = System.currentTimeMillis()
             val top = newResults.maxByOrNull { it.confidence }
 
@@ -149,8 +145,7 @@ fun ToTextScreen(
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // OPTIMASI 3: Mengembalikan movableContentOf yang sempat hilang agar kamera
-    // tidak di-destroy & di-rebuild saat berpindah dari mode normal ke layar penuh.
+// mengsatukan 2 view
     val cameraContent = remember {
         movableContentOf {
             Box(modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
@@ -346,7 +341,6 @@ fun TranslationResultCard(
     resultText: String,
     gestureInfo: String,
     onCopy: () -> Unit = {},
-//    onSave: () -> Unit = {},
     onReset: () -> Unit = {}
 ) {
     // Isi komponen ini sama persis seperti sebelumnya
@@ -372,7 +366,6 @@ fun TranslationResultCard(
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 ActionPill(icon = Icons.Default.ContentCopy, text = "Salin", onClick = onCopy)
-//                ActionPill(icon = Icons.Default.Save, text = "Simpan", onClick = onSave)
                 ActionPill(icon = Icons.Default.Refresh, text = "Ulangi", onClick = onReset)
             }
         }

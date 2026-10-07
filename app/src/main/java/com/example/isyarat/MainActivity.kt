@@ -34,7 +34,7 @@ import com.example.isyarat.ui.kamus.KamusCategoryScreen
 import com.example.isyarat.ui.kamus.KamusCategory
 import androidx.compose.ui.res.painterResource
 
-// --- DATA CLASS UNTUK DINAMIS ---
+//  DATA CLASS UNTUK DINAMIS
 data class TranslationMode(
     val title: String,
     val description: String,
@@ -43,15 +43,8 @@ data class TranslationMode(
     val routeId: String
 )
 
-data class RecentActivity(
-    val typeTitle: String,
-    val isSignToText: Boolean,
-    val time: String,
-    val contentText: String,
-    val trailingIcon: ImageVector
-)
 
-// --- MOCK DATA ---
+// MOCK DATA
 val modeList = listOf(
     TranslationMode(
         title = "Isyarat ke Text",
@@ -301,7 +294,6 @@ fun TranslationModeCard(
                     .align(Alignment.End)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.secondary)
-                    // .clickable { onClick() } dihapus dari sini agar keseluruhan Box utama yang bereaksi
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

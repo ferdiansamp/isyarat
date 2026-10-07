@@ -57,9 +57,12 @@ class YoloDetector(
 
         val inputSize = Constants.INPUT_SIZE
         val resized = letterbox(bitmap, inputSize)
+        //ngecek NHWC/NCHW , susunan RGB  , R1G1B1/ R1R2R3
         val channelsFirst = interpreter.getInputTensor(0).shape()[1] == 3
+        //ngubah bitmap ke bytebuffer
         val inputBuffer = convertBitmapToByteBuffer(resized, inputSize, channelsFirst)
 
+        //otomatis ngecek output
         val outputShape = interpreter.getOutputTensor(0).shape()
         val numAttributes = outputShape[1]
         val numBoxes = outputShape[2]

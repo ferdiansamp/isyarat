@@ -37,10 +37,12 @@ class CameraManager(
             val provider = cameraProviderFuture.get()
             cameraProvider = provider
 
+            //ui
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
 
+            //analisis
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setTargetResolution(Size(Constants.INPUT_SIZE, Constants.INPUT_SIZE))
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
