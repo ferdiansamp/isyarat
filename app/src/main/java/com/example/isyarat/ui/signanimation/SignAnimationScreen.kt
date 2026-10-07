@@ -79,7 +79,7 @@ fun ToScreenScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "penerjemah kamera instan", // Sesuai teks di desain
+                text = "Memperjelas Teks", // Sesuai teks di desain
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.tertiary
             )
